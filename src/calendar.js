@@ -10,24 +10,8 @@
 
 angular.module('ui.calendar', [])
   .constant('uiCalendarConfig', {})
-  .directive('uiCalendar', ['uiCalendarConfig', '$locale', function(uiCalendarConfig, $locale) {
-  // Configure to use locale names by default
-  var tValues = function(data) {
-    // convert {0: "Jan", 1: "Feb", ...} to ["Jan", "Feb", ...]
-    var r, k;
-    r = [];
-    for (k in data) {
-      r[k] = data[k];
-    }
-    return r;
-  };
-  var dtf = $locale.DATETIME_FORMATS;
-  uiCalendarConfig = angular.extend({
-    monthNames: tValues(dtf.MONTH),
-    monthNamesShort: tValues(dtf.SHORTMONTH),
-    dayNames: tValues(dtf.DAY),
-    dayNamesShort: tValues(dtf.SHORTDAY)
-  }, uiCalendarConfig || {});
+  .directive('uiCalendar', ['uiCalendarConfig', '$parse', function(uiCalendarConfig) {
+  uiCalendarConfig = uiCalendarConfig || {};
   var sourceSerialId = 1, eventSerialId = 1;
   //returns calendar
   return {
@@ -48,6 +32,7 @@ angular.module('ui.calendar', [])
         var options = { eventSources: sources };
         angular.extend(options, uiCalendarConfig, attrs.uiCalendar ? scope.$parent.$eval(attrs.uiCalendar) : {});
         scope.calendar.fullCalendar(options);
+        $('#monthCalendar').css('margin-left',angular.element('.calendar-index').width()); // Added by Deac to offset the month quick selector
       };
       scope.init();
 
@@ -100,7 +85,6 @@ angular.module('ui.calendar', [])
               self.onChanged(el);
             }
           }
-
           var addedTokens = subtractAsSets(newTokens, oldTokens);
           for (i = 0, n = addedTokens.length; i < n; i++) {
             token = addedTokens[i];
@@ -111,12 +95,8 @@ angular.module('ui.calendar', [])
           }
         };
         return self = {
-          subscribe: function(scope, onChanged) {
-            scope.$watch(getTokens, function(newTokens, oldTokens) {
-              if (!onChanged || onChanged(newTokens, oldTokens) !== false) {
-                applyChanges(newTokens, oldTokens);
-              }
-            }, true);
+          subscribe: function(scope) {
+            scope.$watch(getTokens, applyChanges, true);
           },
           onAdded: angular.noop,
           onChanged: angular.noop,
@@ -126,19 +106,15 @@ angular.module('ui.calendar', [])
 
       //= tracking sources added/removed
 
-      var sourcesChanged = false;
-
       var eventSourcesWatcher = changeWatcher(sources, function(source) {
         return source.__id || (source.__id = sourceSerialId++);
       });
       eventSourcesWatcher.subscribe(scope);
       eventSourcesWatcher.onAdded = function(source) {
         scope.calendar.fullCalendar('addEventSource', source);
-        sourcesChanged = true;
       };
       eventSourcesWatcher.onRemoved = function(source) {
         scope.calendar.fullCalendar('removeEventSource', source);
-        sourcesChanged = true;
       };
 
       //= tracking individual events added/changed/removed
@@ -161,15 +137,7 @@ angular.module('ui.calendar', [])
         return "" + e.__uiCalId + (e.id || '') + (e.title || '') + (e.url || '') + (+e.start || '') + (+e.end || '') +
             (e.allDay || false) + (e.className || '');
       });
-      eventsWatcher.subscribe(scope, function(newTokens, oldTokens) {
-        if (sourcesChanged) {
-          // Rerender the whole thing if a new event source was added/removed
-          scope.calendar.fullCalendar('rerenderEvents');
-          sourcesChanged = false;
-          // prevent incremental updates in this case
-          return false;
-        }
-      });
+      eventsWatcher.subscribe(scope);
       eventsWatcher.onAdded = function(event) {
         scope.calendar.fullCalendar('renderEvent', event);
       };
@@ -182,4 +150,3 @@ angular.module('ui.calendar', [])
     }
   };
 }]);
-
