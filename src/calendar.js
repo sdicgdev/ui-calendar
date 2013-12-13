@@ -44,7 +44,7 @@ angular.module('ui.calendar', [])
         var self;
         var getTokens = function() {
           var array = angular.isFunction(arraySource) ? arraySource() : arraySource;
-          return array.map(function(el) {
+					return array.map(function(el) {
             var token = tokenFn(el);
             map[token] = el;
             return token;
@@ -86,6 +86,13 @@ angular.module('ui.calendar', [])
             }
           }
           var addedTokens = subtractAsSets(newTokens, oldTokens);
+
+					// shim added by evan to make going back and forth between scope contexts work
+					if(newTokens == oldTokens && addedTokens.length == 0){
+						addedTokens = newTokens;
+					}
+					// end shim
+
           for (i = 0, n = addedTokens.length; i < n; i++) {
             token = addedTokens[i];
             el = map[token];
